@@ -2,167 +2,136 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Zombie Arena</title>
+<title>Biyoloji Zombi Oyunu</title>
 <style>
 body {
   margin: 0;
   background: #111;
-  overflow: hidden;
   color: white;
   font-family: Arial;
 }
 #ui {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  font-size: 18px;
+  padding: 10px;
 }
 canvas {
-  background: #1f2933;
   display: block;
   margin: auto;
+  background: #222;
+}
+input {
+  padding: 6px;
+  font-size: 16px;
+}
+button {
+  padding: 6px 12px;
 }
 </style>
 </head>
+
 <body>
 
 <div id="ui">
-❤️ Can: <span id="hp">100</span><br>
-💀 Dalga: <span id="wave">1</span><br>
-🔫 Skor: <span id="score">0</span>
+  <h3 id="question"></h3>
+  <input id="answer" placeholder="Cevabı yaz...">
+  <button onclick="checkAnswer()">Gönder</button>
+
+  <p>✅ Doğru: <span id="correct">0</span></p>
+  <p>🔥 Fire Skill: <span id="fire">KAPALI</span></p>
+  <p>❄️ Freeze Skill: <span id="freeze">KAPALI</span></p>
 </div>
 
-<canvas id="game" width="800" height="500"></canvas>
+<canvas id="game" width="800" height="400"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-let keys = {};
-let mouse = {x:0,y:0};
-
-document.addEventListener("keydown", e => keys[e.key]=true);
-document.addEventListener("keyup", e => keys[e.key]=false);
-canvas.addEventListener("mousemove", e => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = e.clientX - rect.left;
-  mouse.y = e.clientY - rect.top;
-});
-
-let player = { x:400, y:250, r:15, speed:3, hp:100 };
-let bullets = [];
 let zombies = [];
-let wave = 1;
-let score = 0;
+let correct = 0;
+let freezeTimer = 0;
 
-function spawnWave() {
-  zombies = [];
-  let count = wave * 3;
-  for(let i=0;i<count;i++){
+const questions = [
+  {q:"Hücrenin enerji üretim organeli?", a:"mitokondri"},
+  {q:"DNA'nın yapı birimi?", a:"nükleotit"},
+  {q:"Fotosentez nerede gerçekleşir?", a:"kloroplast"},
+  {q:"Proteinlerin yapı taşı nedir?", a:"aminoasit"},
+  {q:"Solunumda kullanılan gaz?", a:"oksijen"},
+  {q:"Bitkilerde suyu taşıyan doku?", a:"ksilem"},
+  {q:"Canlıların en küçük yapı birimi?", a:"hücre"},
+  {q:"Fotosentez sonucu açığa çıkan gaz?", a:"oksijen"},
+  {q:"Hücre zarının görevi nedir?", a:"koruma"}
+];
+
+let qIndex = 0;
+
+function spawnZombie(count = 1) {
+  for (let i = 0; i < count; i++) {
     zombies.push({
-      x: Math.random()*800,
-      y: Math.random()*500,
-      hp: 50,
-      speed: 0.6 + wave*0.1
+      x: Math.random() * 800,
+      y: Math.random() * 400,
+      speed: 0.4
     });
   }
 }
 
-spawnWave();
+spawnZombie(3);
 
-canvas.addEventListener("mousedown", () => {
-  bullets.push({
-    x: player.x,
-    y: player.y,
-    dx: (mouse.x - player.x) / 10,
-    dy: (mouse.y - player.y) / 10
-  });
-});
+function checkAnswer() {
+  let val = document.getElementById("answer").value.toLowerCase().trim();
+  if (val === questions[qIndex].a) {
+    correct++;
+    if (correct % 5 === 0) fireSkill();
+    if (correct % 10 === 0) freezeSkill();
+  } else {
+    spawnZombie(2);
+  }
 
-function update(){
-  // Movement
-  if(keys["w"]) player.y -= player.speed;
-  if(keys["s"]) player.y += player.speed;
-  if(keys["a"]) player.x -= player.speed;
-  if(keys["d"]) player.x += player.speed;
+  qIndex = (qIndex + 1) % questions.length;
+  document.getElementById("question").innerText = questions[qIndex].q;
+  document.getElementById("answer").value = "";
+  document.getElementById("correct").innerText = correct;
+}
 
-  // Bullets
-  bullets.forEach(b=>{
-    b.x += b.dx;
-    b.y += b.dy;
-  });
+function fireSkill() {
+  zombies = [];
+  document.getElementById("fire").innerText = "KULLANILDI 🔥";
+  setTimeout(() => {
+    document.getElementById("fire").innerText = "HAZIR";
+  }, 2000);
+}
 
-  // Zombies
-  zombies.forEach(z=>{
-    let dx = player.x - z.x;
-    let dy = player.y - z.y;
-    let d = Math.hypot(dx,dy);
-    z.x += dx/d * z.speed;
-    z.y += dy/d * z.speed;
+function freezeSkill() {
+  freezeTimer = 300;
+  document.getElementById("freeze").innerText = "AKTİF ❄️";
+}
 
-    if(d < 20){
-      player.hp -= 0.2;
+function update() {
+  ctx.clearRect(0, 0, 800, 400);
+
+  zombies.forEach(z => {
+    if (freezeTimer <= 0) {
+      z.x += (400 - z.x) * 0.002;
+      z.y += (200 - z.y) * 0.002;
     }
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, 15, 0, Math.PI * 2);
+    ctx.fill();
   });
 
-  // Collision
-  bullets.forEach((b,bi)=>{
-    zombies.forEach((z,zi)=>{
-      if(Math.hypot(b.x-z.x,b.y-z.y)<15){
-        z.hp -= 25;
-        bullets.splice(bi,1);
-        if(z.hp<=0){
-          zombies.splice(zi,1);
-          score++;
-        }
-      }
-    });
-  });
-
-  if(zombies.length === 0){
-    wave++;
-    spawnWave();
+  if (freezeTimer > 0) {
+    freezeTimer--;
+    if (freezeTimer === 0) {
+      document.getElementById("freeze").innerText = "HAZIR";
+    }
   }
 
-  document.getElementById("hp").innerText = Math.max(0, Math.floor(player.hp));
-  document.getElementById("wave").innerText = wave;
-  document.getElementById("score").innerText = score;
+  requestAnimationFrame(update);
 }
 
-function draw(){
-  ctx.clearRect(0,0,800,500);
-
-  // Player
-  ctx.fillStyle = "cyan";
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
-  ctx.fill();
-
-  // Bullets
-  ctx.fillStyle = "yellow";
-  bullets.forEach(b=>{
-    ctx.beginPath();
-    ctx.arc(b.x,b.y,4,0,Math.PI*2);
-    ctx.fill();
-  });
-
-  // Zombies
-  ctx.fillStyle = "red";
-  zombies.forEach(z=>{
-    ctx.beginPath();
-    ctx.arc(z.x,z.y,15,0,Math.PI*2);
-    ctx.fill();
-  });
-}
-
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-loop();
+document.getElementById("question").innerText = questions[0].q;
+update();
 </script>
+
 </body>
 </html>
-
