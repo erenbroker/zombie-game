@@ -2,136 +2,186 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>Biyoloji Zombi Oyunu</title>
+<title>BioZombie - 9. Sınıf Biyoloji</title>
 <style>
 body {
-  margin: 0;
-  background: #111;
-  color: white;
-  font-family: Arial;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+    overflow: hidden;
 }
-#ui {
-  padding: 10px;
+#game {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
 }
-canvas {
-  display: block;
-  margin: auto;
-  background: #222;
+#hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
 }
-input {
-  padding: 6px;
-  font-size: 16px;
+#hud span {
+    margin-right: 20px;
+    font-size: 18px;
+}
+#questionBox {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    padding: 20px;
+    width: 80%;
+    border-radius: 10px;
+}
+#answerInput {
+    width: 80%;
+    padding: 10px;
+    font-size: 18px;
+}
+#submitBtn {
+    padding: 10px 20px;
+    font-size: 18px;
+}
+.zombie {
+    position: absolute;
+    width: 80px;
+    height: 120px;
+    background: url('https://i.imgur.com/2RMZ4zG.png') no-repeat center/contain;
+}
+#player {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    width: 60px;
+    height: 80px;
+    background: url('https://i.imgur.com/9WfhpXh.png') no-repeat center/contain;
+}
+#gameOver {
+    display: none;
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    color: white;
+    text-align: center;
+    padding-top: 200px;
 }
 button {
-  padding: 6px 12px;
+    padding: 12px 25px;
+    font-size: 20px;
+    margin: 10px;
 }
 </style>
 </head>
-
 <body>
 
-<div id="ui">
-  <h3 id="question"></h3>
-  <input id="answer" placeholder="Cevabı yaz...">
-  <button onclick="checkAnswer()">Gönder</button>
+<div id="game">
+    <div id="hud">
+        <span>Can: <span id="hp">100</span></span>
+        <span>Zombi: <span id="zombieCount">1</span></span>
+    </div>
 
-  <p>✅ Doğru: <span id="correct">0</span></p>
-  <p>🔥 Fire Skill: <span id="fire">KAPALI</span></p>
-  <p>❄️ Freeze Skill: <span id="freeze">KAPALI</span></p>
+    <div id="player"></div>
+
+    <div id="questionBox">
+        <div id="questionText"></div>
+        <input type="text" id="answerInput" placeholder="Cevabını yaz...">
+        <button id="submitBtn">Cevapla</button>
+    </div>
+
+    <div id="gameOver">
+        <h1>GAME OVER</h1>
+        <button onclick="restartGame()">Tekrar Başla</button>
+        <button onclick="location.reload()">Çıkış</button>
+    </div>
 </div>
 
-<canvas id="game" width="800" height="400"></canvas>
-
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-let zombies = [];
-let correct = 0;
-let freezeTimer = 0;
-
 const questions = [
-  {q:"Hücrenin enerji üretim organeli?", a:"mitokondri"},
-  {q:"DNA'nın yapı birimi?", a:"nükleotit"},
-  {q:"Fotosentez nerede gerçekleşir?", a:"kloroplast"},
-  {q:"Proteinlerin yapı taşı nedir?", a:"aminoasit"},
-  {q:"Solunumda kullanılan gaz?", a:"oksijen"},
-  {q:"Bitkilerde suyu taşıyan doku?", a:"ksilem"},
-  {q:"Canlıların en küçük yapı birimi?", a:"hücre"},
-  {q:"Fotosentez sonucu açığa çıkan gaz?", a:"oksijen"},
-  {q:"Hücre zarının görevi nedir?", a:"koruma"}
+    { q: "Hücre zarının temel görevi nedir?", a: "madde alışverişini düzenlemek" },
+    { q: "Fotosentezin gerçekleştiği organel hangisidir?", a: "kloroplast" },
+    { q: "Protein sentezinde görev alan organel?", a: "ribozom" },
+    { q: "DNA'nın kendini eşlediği evre?", a: "s" },
+    { q: "Canlıların en küçük yapı birimi nedir?", a: "hücre" }
 ];
 
-let qIndex = 0;
+let currentQuestion = 0;
+let hp = 100;
+let zombieCount = 1;
+let zombies = [];
 
-function spawnZombie(count = 1) {
-  for (let i = 0; i < count; i++) {
-    zombies.push({
-      x: Math.random() * 800,
-      y: Math.random() * 400,
-      speed: 0.4
-    });
-  }
+function spawnZombies(count) {
+    zombies.forEach(z => z.remove());
+    zombies = [];
+    for (let i = 0; i < count; i++) {
+        let z = document.createElement('div');
+        z.className = 'zombie';
+        z.style.left = Math.random() * (window.innerWidth - 100) + 'px';
+        z.style.top = '0px';
+        document.getElementById('game').appendChild(z);
+        zombies.push(z);
+    }
 }
 
-spawnZombie(3);
+function moveZombies() {
+    zombies.forEach(z => {
+        let top = parseInt(z.style.top);
+        z.style.top = top + 1 + 'px';
+        if (top > window.innerHeight - 150) {
+            hp -= 5;
+            document.getElementById('hp').innerText = hp;
+            if (hp <= 0) gameOver();
+        }
+    });
+}
+
+setInterval(moveZombies, 50);
+
+function loadQuestion() {
+    document.getElementById('questionText').innerText = questions[currentQuestion].q;
+}
 
 function checkAnswer() {
-  let val = document.getElementById("answer").value.toLowerCase().trim();
-  if (val === questions[qIndex].a) {
-    correct++;
-    if (correct % 5 === 0) fireSkill();
-    if (correct % 10 === 0) freezeSkill();
-  } else {
-    spawnZombie(2);
-  }
+    let userAnswer = document.getElementById('answerInput').value.trim().toLowerCase();
+    let correct = questions[currentQuestion].a;
 
-  qIndex = (qIndex + 1) % questions.length;
-  document.getElementById("question").innerText = questions[qIndex].q;
-  document.getElementById("answer").value = "";
-  document.getElementById("correct").innerText = correct;
-}
-
-function fireSkill() {
-  zombies = [];
-  document.getElementById("fire").innerText = "KULLANILDI 🔥";
-  setTimeout(() => {
-    document.getElementById("fire").innerText = "HAZIR";
-  }, 2000);
-}
-
-function freezeSkill() {
-  freezeTimer = 300;
-  document.getElementById("freeze").innerText = "AKTİF ❄️";
-}
-
-function update() {
-  ctx.clearRect(0, 0, 800, 400);
-
-  zombies.forEach(z => {
-    if (freezeTimer <= 0) {
-      z.x += (400 - z.x) * 0.002;
-      z.y += (200 - z.y) * 0.002;
+    if (userAnswer === correct) {
+        currentQuestion++;
+        document.getElementById('answerInput').value = '';
+        if (currentQuestion >= questions.length) {
+            alert('TEBRİKLER! TÜM SORULAR BİTTİ!');
+            location.reload();
+        }
+        spawnZombies(zombieCount);
+    } else {
+        zombieCount *= 2;
+        spawnZombies(zombieCount);
     }
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(z.x, z.y, 15, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  if (freezeTimer > 0) {
-    freezeTimer--;
-    if (freezeTimer === 0) {
-      document.getElementById("freeze").innerText = "HAZIR";
-    }
-  }
-
-  requestAnimationFrame(update);
+    document.getElementById('zombieCount').innerText = zombieCount;
 }
 
-document.getElementById("question").innerText = questions[0].q;
-update();
+function gameOver() {
+    document.getElementById('gameOver').style.display = 'block';
+}
+
+function restartGame() {
+    hp = 100;
+    zombieCount = 1;
+    currentQuestion = 0;
+    document.getElementById('hp').innerText = hp;
+    document.getElementById('zombieCount').innerText = zombieCount;
+    document.getElementById('gameOver').style.display = 'none';
+    spawnZombies(zombieCount);
+    loadQuestion();
+}
+
+spawnZombies(1);
+loadQuestion();
+
+document.getElementById('submitBtn').addEventListener('click', checkAnswer);
 </script>
-
 </body>
 </html>
