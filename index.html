@@ -2,186 +2,143 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>BioZombie - 9. Sınıf Biyoloji</title>
+<title>Biyoloji Zombi Oyunu - Gelişmiş</title>
 <style>
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #111;
-    color: white;
-    overflow: hidden;
-}
-#game {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-}
-#hud {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 10;
-}
-#hud span {
-    margin-right: 20px;
-    font-size: 18px;
-}
-#questionBox {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    padding: 20px;
-    width: 80%;
-    border-radius: 10px;
-}
-#answerInput {
-    width: 80%;
-    padding: 10px;
-    font-size: 18px;
-}
-#submitBtn {
-    padding: 10px 20px;
-    font-size: 18px;
-}
-.zombie {
-    position: absolute;
-    width: 80px;
-    height: 120px;
-    background: url('https://i.imgur.com/2RMZ4zG.png') no-repeat center/contain;
-}
-#player {
-    position: absolute;
-    bottom: 120px;
-    left: 50%;
-    width: 60px;
-    height: 80px;
-    background: url('https://i.imgur.com/9WfhpXh.png') no-repeat center/contain;
-}
-#gameOver {
-    display: none;
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    color: white;
-    text-align: center;
-    padding-top: 200px;
-}
-button {
-    padding: 12px 25px;
-    font-size: 20px;
-    margin: 10px;
-}
+body { margin:0; background:#111; color:white; font-family:Arial; overflow:hidden; }
+#gameArea { width:100vw; height:100vh; position:relative; }
+#player { width:50px; height:50px; background:blue; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); }
+.zombie { width:50px; height:50px; background:green; position:absolute; top:0; }
+.bullet { width:8px; height:8px; background:yellow; position:absolute; border-radius:50%; }
+#ui { position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.7); padding:10px; }
+#stats { position:absolute; top:10px; left:10px; }
+input, button { padding:6px; font-size:16px; }
 </style>
 </head>
 <body>
-
-<div id="game">
-    <div id="hud">
-        <span>Can: <span id="hp">100</span></span>
-        <span>Zombi: <span id="zombieCount">1</span></span>
-    </div>
-
+<div id="gameArea">
     <div id="player"></div>
-
-    <div id="questionBox">
-        <div id="questionText"></div>
-        <input type="text" id="answerInput" placeholder="Cevabını yaz...">
-        <button id="submitBtn">Cevapla</button>
-    </div>
-
-    <div id="gameOver">
-        <h1>GAME OVER</h1>
-        <button onclick="restartGame()">Tekrar Başla</button>
-        <button onclick="location.reload()">Çıkış</button>
+    <div id="stats">Can: <span id="health">100</span> | Süre: <span id="time">60</span></div>
+    <div id="ui">
+        <div id="question"></div>
+        <input id="answer" placeholder="Cevabı yaz">
+        <button onclick="checkAnswer()">Cevapla</button>
+        <div id="info"></div>
     </div>
 </div>
 
 <script>
-const questions = [
-    { q: "Hücre zarının temel görevi nedir?", a: "madde alışverişini düzenlemek" },
-    { q: "Fotosentezin gerçekleştiği organel hangisidir?", a: "kloroplast" },
-    { q: "Protein sentezinde görev alan organel?", a: "ribozom" },
-    { q: "DNA'nın kendini eşlediği evre?", a: "s" },
-    { q: "Canlıların en küçük yapı birimi nedir?", a: "hücre" }
+let questions = [
+ {q:"Hücrenin yönetim merkezi nedir?", a:"çekirdek"},
+ {q:"Fotosentez hangi organelde olur?", a:"kloroplast"},
+ {q:"Protein sentezi nerede olur?", a:"ribozom"},
+ {q:"Canlıların en küçük yapı birimi?", a:"hücre"},
+ {q:"DNA hangi evrede eşlenir?", a:"interfaz"},
+ {q:"Mitokondrinin görevi nedir?", a:"enerji üretmek"},
+ {q:"Hücre zarının yapısı nedir?", a:"fosfolipit"},
+ {q:"Fotosentezde oksijen nereden çıkar?", a:"sudan"}
 ];
 
-let currentQuestion = 0;
-let hp = 100;
-let zombieCount = 1;
+let player = document.getElementById("player");
+let health = 100;
+let time = 60;
+let currentQ = 0;
 let zombies = [];
+let bullets = [];
+let canMove = true;
+let gameInterval;
 
-function spawnZombies(count) {
-    zombies.forEach(z => z.remove());
-    zombies = [];
-    for (let i = 0; i < count; i++) {
-        let z = document.createElement('div');
-        z.className = 'zombie';
-        z.style.left = Math.random() * (window.innerWidth - 100) + 'px';
-        z.style.top = '0px';
-        document.getElementById('game').appendChild(z);
+function startGame(){
+    showQuestion();
+    gameInterval = setInterval(gameLoop, 30);
+    setInterval(()=>{
+        time--;
+        document.getElementById("time").innerText = time;
+        if(time <= 0) gameOver();
+    },1000);
+}
+
+function showQuestion(){
+    document.getElementById("question").innerText = questions[currentQ].q;
+}
+
+function checkAnswer(){
+    let val = document.getElementById("answer").value.toLowerCase().trim();
+    if(val === questions[currentQ].a){
+        spawnZombies(3);
+        currentQ++;
+        document.getElementById("answer").value="";
+        if(currentQ >= questions.length) currentQ = 0;
+    } else {
+        spawnZombies(5);
+    }
+}
+
+function spawnZombies(count){
+    for(let i=0;i<count;i++){
+        let z = document.createElement("div");
+        z.className = "zombie";
+        z.style.left = Math.random() * (window.innerWidth - 50) + "px";
+        z.style.top = "0px";
+        document.getElementById("gameArea").appendChild(z);
         zombies.push(z);
     }
 }
 
-function moveZombies() {
-    zombies.forEach(z => {
-        let top = parseInt(z.style.top);
-        z.style.top = top + 1 + 'px';
-        if (top > window.innerHeight - 150) {
-            hp -= 5;
-            document.getElementById('hp').innerText = hp;
-            if (hp <= 0) gameOver();
+function shoot(){
+    let b = document.createElement("div");
+    b.className = "bullet";
+    b.style.left = player.offsetLeft + 20 + "px";
+    b.style.top = player.offsetTop + "px";
+    document.getElementById("gameArea").appendChild(b);
+    bullets.push(b);
+}
+
+function gameLoop(){
+    zombies.forEach((z, zi)=>{
+        let top = z.offsetTop + 1.5;
+        z.style.top = top + "px";
+        if(top > window.innerHeight - 80){
+            health -= 10;
+            document.getElementById("health").innerText = health;
+            z.remove();
+            zombies.splice(zi,1);
+            if(health <= 0) gameOver();
         }
+    });
+
+    bullets.forEach((b, bi)=>{
+        let top = b.offsetTop - 8;
+        b.style.top = top + "px";
+        if(top < 0){ b.remove(); bullets.splice(bi,1); }
+
+        zombies.forEach((z, zi)=>{
+            if(b.getBoundingClientRect().intersects(z.getBoundingClientRect())){
+                z.remove(); b.remove();
+                zombies.splice(zi,1);
+                bullets.splice(bi,1);
+            }
+        });
     });
 }
 
-setInterval(moveZombies, 50);
-
-function loadQuestion() {
-    document.getElementById('questionText').innerText = questions[currentQuestion].q;
+function gameOver(){
+    clearInterval(gameInterval);
+    document.body.innerHTML = `
+    <h1>Oyun Bitti</h1>
+    <p>Canın Bitti!</p>
+    <button onclick="location.reload()">Tekrar Oyna</button>
+    `;
 }
 
-function checkAnswer() {
-    let userAnswer = document.getElementById('answerInput').value.trim().toLowerCase();
-    let correct = questions[currentQuestion].a;
+window.addEventListener("keydown", e=>{
+    if(!canMove) return;
+    let left = player.offsetLeft;
+    if(e.key === "a" && left > 0) player.style.left = left - 20 + "px";
+    if(e.key === "d" && left < window.innerWidth - 50) player.style.left = left + 20 + "px";
+    if(e.key === " ") shoot();
+});
 
-    if (userAnswer === correct) {
-        currentQuestion++;
-        document.getElementById('answerInput').value = '';
-        if (currentQuestion >= questions.length) {
-            alert('TEBRİKLER! TÜM SORULAR BİTTİ!');
-            location.reload();
-        }
-        spawnZombies(zombieCount);
-    } else {
-        zombieCount *= 2;
-        spawnZombies(zombieCount);
-    }
-    document.getElementById('zombieCount').innerText = zombieCount;
-}
-
-function gameOver() {
-    document.getElementById('gameOver').style.display = 'block';
-}
-
-function restartGame() {
-    hp = 100;
-    zombieCount = 1;
-    currentQuestion = 0;
-    document.getElementById('hp').innerText = hp;
-    document.getElementById('zombieCount').innerText = zombieCount;
-    document.getElementById('gameOver').style.display = 'none';
-    spawnZombies(zombieCount);
-    loadQuestion();
-}
-
-spawnZombies(1);
-loadQuestion();
-
-document.getElementById('submitBtn').addEventListener('click', checkAnswer);
+startGame();
 </script>
 </body>
 </html>
