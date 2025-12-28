@@ -1,144 +1,653 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<title>Biyoloji Zombi Oyunu - Gelişmiş</title>
-<style>
-body { margin:0; background:#111; color:white; font-family:Arial; overflow:hidden; }
-#gameArea { width:100vw; height:100vh; position:relative; }
-#player { width:50px; height:50px; background:blue; position:absolute; bottom:10px; left:50%; transform:translateX(-50%); }
-.zombie { width:50px; height:50px; background:green; position:absolute; top:0; }
-.bullet { width:8px; height:8px; background:yellow; position:absolute; border-radius:50%; }
-#ui { position:absolute; bottom:0; width:100%; background:rgba(0,0,0,0.7); padding:10px; }
-#stats { position:absolute; top:10px; left:10px; }
-input, button { padding:6px; font-size:16px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>9. Sınıf Biyoloji Zombi Arenası</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Roboto:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Roboto', sans-serif;
+            color: white;
+            user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #2b2b2b; /* Zemin rengi */
+            cursor: crosshair;
+        }
+
+        /* UI Katmanları */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        .bar-container {
+            width: 200px;
+            height: 20px;
+            background-color: #444;
+            border: 2px solid #000;
+            margin-bottom: 5px;
+            position: relative;
+        }
+
+        #healthBar {
+            width: 100%;
+            height: 100%;
+            background-color: #e74c3c;
+            transition: width 0.2s;
+        }
+
+        /* Soru Modalı */
+        #questionModal {
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #e74c3c;
+            text-align: center;
+            pointer-events: auto;
+            max-width: 600px;
+            display: none; /* JS ile açılacak */
+            box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+        }
+
+        #questionText {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        #answerInput {
+            padding: 10px;
+            font-size: 18px;
+            width: 80%;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        #submitBtn {
+            padding: 10px 30px;
+            font-size: 18px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #submitBtn:hover {
+            background-color: #2ecc71;
+        }
+
+        #feedbackText {
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 22px;
+            height: 30px;
+        }
+
+        /* Game Over Menüsü */
+        #gameOverMenu {
+            background-color: rgba(0, 0, 0, 0.95);
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        .menu-title {
+            font-family: 'Creepster', cursive;
+            font-size: 80px;
+            color: #c0392b;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        .menu-btn {
+            background-color: #333;
+            color: white;
+            border: 2px solid #fff;
+            padding: 15px 40px;
+            font-size: 24px;
+            margin: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Roboto', sans-serif;
+            width: 250px;
+            text-align: center;
+        }
+
+        .menu-btn:hover {
+            background-color: #fff;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        /* Başlangıç Ekranı */
+        #startScreen {
+            background-color: rgba(0, 0, 0, 0.9);
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 99;
+            pointer-events: auto;
+        }
+        
+        .info-text {
+            color: #aaa;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+    </style>
 </head>
 <body>
-<div id="gameArea">
-    <div id="player"></div>
-    <div id="stats">Can: <span id="health">100</span> | Süre: <span id="time">60</span></div>
-    <div id="ui">
-        <div id="question"></div>
-        <input id="answer" placeholder="Cevabı yaz">
-        <button onclick="checkAnswer()">Cevapla</button>
-        <div id="info"></div>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div>SAĞLIK</div>
+        <div class="bar-container">
+            <div id="healthBar"></div>
+        </div>
+        <div>KALAN ZOMBİ: <span id="zombieCountDisplay">0</span></div>
+        <div>DALGA ŞİDDETİ: <span id="waveMultiplier">1x</span></div>
     </div>
-</div>
 
-<script>
-let questions = [
- {q:"Hücrenin yönetim merkezi nedir?", a:"çekirdek"},
- {q:"Fotosentez hangi organelde olur?", a:"kloroplast"},
- {q:"Protein sentezi nerede olur?", a:"ribozom"},
- {q:"Canlıların en küçük yapı birimi?", a:"hücre"},
- {q:"DNA hangi evrede eşlenir?", a:"interfaz"},
- {q:"Mitokondrinin görevi nedir?", a:"enerji üretmek"},
- {q:"Hücre zarının yapısı nedir?", a:"fosfolipit"},
- {q:"Fotosentezde oksijen nereden çıkar?", a:"sudan"}
-];
+    <!-- Canvas -->
+    <canvas id="gameCanvas"></canvas>
 
-let player = document.getElementById("player");
-let health = 100;
-let time = 60;
-let currentQ = 0;
-let zombies = [];
-let bullets = [];
-let canMove = true;
-let gameInterval;
+    <!-- Soru Ekranı -->
+    <div class="ui-layer">
+        <div id="questionModal">
+            <h2 style="color: #f1c40f;">SORU ZAMANI!</h2>
+            <p id="questionText">Soru buraya gelecek...</p>
+            <input type="text" id="answerInput" placeholder="Cevabınızı buraya yazın..." autocomplete="off">
+            <br>
+            <button id="submitBtn">CEVAPLA</button>
+            <div id="feedbackText"></div>
+        </div>
+    </div>
 
-function startGame(){
-    showQuestion();
-    gameInterval = setInterval(gameLoop, 30);
-    setInterval(()=>{
-        time--;
-        document.getElementById("time").innerText = time;
-        if(time <= 0) gameOver();
-    },1000);
-}
+    <!-- Başlangıç Menüsü -->
+    <div id="startScreen">
+        <h1 class="menu-title" style="color: #27ae60;">BIYOLOJI ARENASI</h1>
+        <p style="font-size: 20px; max-width: 600px; text-align: center; margin-bottom: 30px; line-height: 1.5;">
+            9. Sınıf Biyoloji bilginle hayatta kal!<br>
+            Soruları doğru bil, zombi sayısını kontrol altında tut.<br>
+            Yanlış cevap verirsen zombiler <b>2 KATINA</b> çıkar!<br>
+            Hepsini temizleyince yeni soru gelir.
+        </p>
+        <button class="menu-btn" onclick="startGame()">OYUNA BAŞLA</button>
+    </div>
 
-function showQuestion(){
-    document.getElementById("question").innerText = questions[currentQ].q;
-}
+    <!-- Game Over Menüsü -->
+    <div id="gameOverMenu">
+        <h1 class="menu-title">OYUN BITTI</h1>
+        <p style="font-size: 24px; margin-bottom: 20px;">Öldün!</p>
+        <button class="menu-btn" onclick="restartGame()">TEKRAR OYNA</button>
+        <button class="menu-btn" onclick="exitGame()">ÇIKIŞ</button>
+    </div>
 
-function checkAnswer(){
-    let val = document.getElementById("answer").value.toLowerCase().trim();
-    if(val === questions[currentQ].a){
-        spawnZombies(3);
-        currentQ++;
-        document.getElementById("answer").value="";
-        if(currentQ >= questions.length) currentQ = 0;
-    } else {
-        spawnZombies(5);
-    }
-}
+    <script>
+        // --- OYUN VERİLERİ (9. SINIF BİYOLOJİ MEB) ---
+        // Cevaplar küçük harf ve trim yapılmış olarak kontrol edilecek.
+        const questions = [
+            { q: "Canlıların en küçük yapı ve işlev birimi nedir?", a: ["hücre"] },
+            { q: "Hücrede enerji (ATP) üretiminden sorumlu organel hangisidir?", a: ["mitokondri"] },
+            { q: "Protein sentezinin gerçekleştiği organel hangisidir?", a: ["ribozom"] },
+            { q: "Bitki hücrelerinde fotosentez yapan organel nedir?", a: ["kloroplast"] },
+            { q: "DNA ve RNA'nın genel adı nedir?", a: ["nükleik asit", "nükleik asitler"] },
+            { q: "Enzimlerin yapısına katılan organik bileşik grubu nedir?", a: ["protein", "proteinler"] },
+            { q: "Kan şekerini (glikoz) düzenleyen karbonhidrat çeşidi nedir?", a: ["glikoz"] },
+            { q: "Hücre zarının yapısını oluşturan, akıcı mozaik zar modelinin temeli olan yağ çeşidi nedir?", a: ["fosfolipit", "fosfolipid"] },
+            { q: "Bilimsel yöntemde, hipoteze dayalı olarak yapılan 'Eğer... ise...' cümlelerine ne denir?", a: ["tahmin"] },
+            { q: "Suda çözünen vitamin grupları hangileridir? (Örnek: B ve ...)", a: ["c"] },
+            { q: "Hücre içi sindirimden sorumlu organel hangisidir?", a: ["lizozom"] },
+            { q: "Prokaryot canlılarda (bakteri vb.) DNA nerede bulunur?", a: ["sitoplazma", "sitoplazmada"] },
+            { q: "ATP'nin yapısında bulunan 5 karbonlu şeker nedir?", a: ["riboz"] },
+            { q: "Kaslarda depolanan polisakkarit çeşidi nedir?", a: ["glikojen"] },
+            { q: "Tüm canlılarda bulunan, hücreyi dış ortamdan ayıran yapı nedir?", a: ["hücre zarı"] }
+        ];
 
-function spawnZombies(count){
-    for(let i=0;i<count;i++){
-        let z = document.createElement("div");
-        z.className = "zombie";
-        z.style.left = Math.random() * (window.innerWidth - 50) + "px";
-        z.style.top = "0px";
-        document.getElementById("gameArea").appendChild(z);
-        zombies.push(z);
-    }
-}
-
-function shoot(){
-    let b = document.createElement("div");
-    b.className = "bullet";
-    b.style.left = player.offsetLeft + 20 + "px";
-    b.style.top = player.offsetTop + "px";
-    document.getElementById("gameArea").appendChild(b);
-    bullets.push(b);
-}
-
-function gameLoop(){
-    zombies.forEach((z, zi)=>{
-        let top = z.offsetTop + 1.5;
-        z.style.top = top + "px";
-        if(top > window.innerHeight - 80){
-            health -= 10;
-            document.getElementById("health").innerText = health;
-            z.remove();
-            zombies.splice(zi,1);
-            if(health <= 0) gameOver();
+        // --- OYUN MOTORU AYARLARI ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
         }
-    });
+        window.addEventListener('resize', resize);
+        resize();
 
-    bullets.forEach((b, bi)=>{
-        let top = b.offsetTop - 8;
-        b.style.top = top + "px";
-        if(top < 0){ b.remove(); bullets.splice(bi,1); }
+        // Oyun Durumları
+        const STATE = {
+            START: 0,
+            QUESTION: 1,
+            PLAYING: 2,
+            GAMEOVER: 3
+        };
 
-        zombies.forEach((z, zi)=>{
-            if(b.getBoundingClientRect().intersects(z.getBoundingClientRect())){
-                z.remove(); b.remove();
-                zombies.splice(zi,1);
-                bullets.splice(bi,1);
-            }
+        let currentState = STATE.START;
+        let animationId;
+        let lastTime = 0;
+
+        // Varlıklar
+        let player = {
+            x: 0, y: 0, radius: 20, speed: 5, hp: 100, maxHp: 100, angle: 0
+        };
+        
+        let bullets = [];
+        let zombies = [];
+        let particles = []; // Kan efektleri için
+
+        // Oyun Mantığı Değişkenleri
+        let questionIndex = 0;
+        let zombieBaseCount = 3; // Başlangıç zombi sayısı
+        let currentZombieCount = 0; // O an spawnlanacak zombi sayısı
+        let waveMultiplier = 1; // Zorluk çarpanı
+        
+        // Inputlar
+        const keys = {};
+        const mouse = { x: 0, y: 0, down: false };
+
+        // DOM Elementleri
+        const questionModal = document.getElementById('questionModal');
+        const questionText = document.getElementById('questionText');
+        const answerInput = document.getElementById('answerInput');
+        const feedbackText = document.getElementById('feedbackText');
+        const healthBar = document.getElementById('healthBar');
+        const zombieCountDisplay = document.getElementById('zombieCountDisplay');
+        const waveMultiplierDisplay = document.getElementById('waveMultiplier');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverMenu = document.getElementById('gameOverMenu');
+
+        // --- OLAY DİNLEYİCİLERİ ---
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
         });
-    });
-}
+        window.addEventListener('mousedown', () => {
+            if (currentState === STATE.PLAYING) shoot();
+        });
 
-function gameOver(){
-    clearInterval(gameInterval);
-    document.body.innerHTML = `
-    <h1>Oyun Bitti</h1>
-    <p>Canın Bitti!</p>
-    <button onclick="location.reload()">Tekrar Oyna</button>
-    `;
-}
+        // Soru cevaplama
+        document.getElementById('submitBtn').addEventListener('click', submitAnswer);
+        answerInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAnswer();
+        });
 
-window.addEventListener("keydown", e=>{
-    if(!canMove) return;
-    let left = player.offsetLeft;
-    if(e.key === "a" && left > 0) player.style.left = left - 20 + "px";
-    if(e.key === "d" && left < window.innerWidth - 50) player.style.left = left + 20 + "px";
-    if(e.key === " ") shoot();
-});
+        // --- OYUN FONKSİYONLARI ---
 
-startGame();
-</script>
+        function startGame() {
+            startScreen.style.display = 'none';
+            resetGame();
+            nextPhase(); // İlk soruyla başla
+        }
+
+        function resetGame() {
+            player.x = width / 2;
+            player.y = height / 2;
+            player.hp = 100;
+            player.speed = 5;
+            
+            bullets = [];
+            zombies = [];
+            particles = [];
+            
+            questionIndex = 0;
+            waveMultiplier = 1;
+            zombieBaseCount = 3; // Resetlendiğinde 3 ile başla
+            
+            updateHUD();
+            gameOverMenu.style.display = 'none';
+        }
+
+        function restartGame() {
+            startGame();
+        }
+
+        function exitGame() {
+            alert("Oyun kapatılıyor... (Tarayıcı sekmesini kapatabilirsiniz)");
+            window.close(); // Bazı tarayıcılarda çalışmayabilir güvenlik nedeniyle
+            location.reload(); // En azından ana ekrana dönsün
+        }
+
+        function nextPhase() {
+            // Eğer zombiler bittiyse yeni soru sor
+            if (currentState === STATE.GAMEOVER) return;
+
+            // Soruları karıştır veya döngüye sok
+            if (questionIndex >= questions.length) {
+                questionIndex = 0; // Başa dön ama zorluk kalsın
+            }
+
+            showQuestion();
+        }
+
+        function showQuestion() {
+            currentState = STATE.QUESTION;
+            questionModal.style.display = 'block';
+            answerInput.value = '';
+            feedbackText.textContent = '';
+            feedbackText.style.color = 'white';
+            questionText.textContent = `Soru ${questionIndex + 1}: ${questions[questionIndex].q}`;
+            answerInput.focus();
+        }
+
+        function submitAnswer() {
+            const userAnswer = answerInput.value.trim().toLowerCase();
+            const correctAnswers = questions[questionIndex].a;
+
+            let isCorrect = correctAnswers.includes(userAnswer);
+
+            if (isCorrect) {
+                // DOĞRU
+                feedbackText.textContent = "DOĞRU! Zombi sayısı değişmedi.";
+                feedbackText.style.color = "#2ecc71";
+                // Zombi sayısı geçen el nasılsa öyle kalsın (veya base count)
+                // Ama promptta "geçen el nasıl geldiyse" diyor. 
+                // Biz baseCount * waveMultiplier kullanıyoruz.
+                // Doğru bilince multiplier artmasın.
+            } else {
+                // YANLIŞ
+                feedbackText.textContent = "YANLIŞ! Zombiler 2 katına çıktı!";
+                feedbackText.style.color = "#e74c3c";
+                waveMultiplier *= 2; // Zorluk 2 katı
+            }
+
+            // Kısa bir bekleme ve zombi doğuşu
+            setTimeout(() => {
+                questionModal.style.display = 'none';
+                spawnZombies();
+                currentState = STATE.PLAYING;
+                questionIndex++;
+            }, 1500);
+        }
+
+        function spawnZombies() {
+            zombies = []; // Mevcutları temizle (zaten ölmüş olmalılar ama garanti olsun)
+            let countToSpawn = zombieBaseCount * waveMultiplier;
+            
+            // Performans için üst sınır koyalım (opsiyonel)
+            if (countToSpawn > 200) countToSpawn = 200;
+
+            for (let i = 0; i < countToSpawn; i++) {
+                // Ekranın dışından rastgele doğ
+                let x, y;
+                if (Math.random() < 0.5) {
+                    x = Math.random() < 0.5 ? -50 : width + 50;
+                    y = Math.random() * height;
+                } else {
+                    x = Math.random() * width;
+                    y = Math.random() < 0.5 ? -50 : height + 50;
+                }
+
+                zombies.push({
+                    x: x,
+                    y: y,
+                    radius: 15,
+                    speed: 1.5 + Math.random(), // Rastgele hız
+                    hp: 1
+                });
+            }
+            updateHUD();
+        }
+
+        function shoot() {
+            // Mermi oluştur
+            const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+            const velocity = {
+                x: Math.cos(angle) * 15,
+                y: Math.sin(angle) * 15
+            };
+            
+            bullets.push({
+                x: player.x,
+                y: player.y,
+                vx: velocity.x,
+                vy: velocity.y,
+                radius: 5
+            });
+        }
+
+        function createParticles(x, y, color) {
+            for(let i=0; i<8; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1.0,
+                    color: color
+                });
+            }
+        }
+
+        function checkGameOver() {
+            if (player.hp <= 0) {
+                player.hp = 0;
+                currentState = STATE.GAMEOVER;
+                gameOverMenu.style.display = 'flex';
+            }
+        }
+
+        function updateHUD() {
+            healthBar.style.width = `${player.hp}%`;
+            zombieCountDisplay.textContent = zombies.length;
+            waveMultiplierDisplay.textContent = `${waveMultiplier}x`;
+        }
+
+        // --- OYUN DÖNGÜSÜ ---
+        function loop(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update();
+            draw();
+
+            requestAnimationFrame(loop);
+        }
+
+        function update() {
+            if (currentState !== STATE.PLAYING) return;
+
+            // Oyuncu Hareketi
+            let dx = 0;
+            let dy = 0;
+            if (keys['w'] || keys['W']) dy = -player.speed;
+            if (keys['s'] || keys['S']) dy = player.speed;
+            if (keys['a'] || keys['A']) dx = -player.speed;
+            if (keys['d'] || keys['D']) dx = player.speed;
+
+            // Ekran sınırları
+            if (player.x + dx > player.radius && player.x + dx < width - player.radius) player.x += dx;
+            if (player.y + dy > player.radius && player.y + dy < height - player.radius) player.y += dy;
+
+            // Oyuncu açısı (mouse'a bakma)
+            player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+            // Mermiler
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                // Ekran dışı mermi sil
+                if (b.x < 0 || b.x > width || b.y < 0 || b.y > height) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Zombiler
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                let z = zombies[i];
+                // Oyuncuyu takip et
+                let angle = Math.atan2(player.y - z.y, player.x - z.x);
+                z.x += Math.cos(angle) * z.speed;
+                z.y += Math.sin(angle) * z.speed;
+
+                // Oyuncuya çarpma
+                let dist = Math.hypot(player.x - z.x, player.y - z.y);
+                if (dist < player.radius + z.radius) {
+                    player.hp -= 0.5; // Hasar ver
+                    updateHUD();
+                    checkGameOver();
+                }
+
+                // Mermi çarpışması
+                for (let j = bullets.length - 1; j >= 0; j--) {
+                    let b = bullets[j];
+                    let bDist = Math.hypot(z.x - b.x, z.y - b.y);
+                    if (bDist < z.radius + b.radius) {
+                        // Zombi vuruldu
+                        createParticles(z.x, z.y, '#2ecc71'); // Yeşil kan
+                        zombies.splice(i, 1);
+                        bullets.splice(j, 1);
+                        updateHUD();
+                        
+                        // Eğer tüm zombiler bittiyse
+                        if (zombies.length === 0) {
+                            setTimeout(nextPhase, 1000);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Partiküller
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.05;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function draw() {
+            // Arka planı temizle
+            ctx.fillStyle = '#2b2b2b';
+            ctx.fillRect(0, 0, width, height);
+
+            // Izgara çizgileri (Platform hissi için)
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for(let x=0; x<width; x+=50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,height); ctx.stroke(); }
+            for(let y=0; y<height; y+=50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); }
+
+            if (currentState === STATE.START) return; // Menüdeyken çizme
+
+            // Partiküller
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Mermiler
+            ctx.fillStyle = '#f1c40f';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Oyuncu
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            // Gövde
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Silah
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(10, -5, 25, 10);
+            
+            ctx.restore();
+
+            // Zombiler
+            zombies.forEach(z => {
+                ctx.save();
+                ctx.translate(z.x, z.y);
+                // Zombi yüzü daima oyuncuya baksın
+                let lookAngle = Math.atan2(player.y - z.y, player.x - z.x);
+                ctx.rotate(lookAngle);
+
+                // Gövde
+                ctx.fillStyle = '#27ae60';
+                ctx.beginPath();
+                ctx.arc(0, 0, z.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Gözler (Korkunç olsun)
+                ctx.fillStyle = '#c0392b';
+                ctx.beginPath();
+                ctx.arc(5, -5, 3, 0, Math.PI * 2);
+                ctx.arc(5, 5, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eller (Saldırıyor gibi)
+                ctx.fillStyle = '#229954';
+                ctx.beginPath();
+                ctx.arc(12, -10, 4, 0, Math.PI * 2);
+                ctx.arc(12, 10, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            });
+        }
+
+        // Başlat
+        requestAnimationFrame(loop);
+
+    </script>
 </body>
 </html>
